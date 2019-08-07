@@ -16,10 +16,11 @@
               border: 1px solid black;
               border-collapse: collapse;
             }*/
+    // Set up style for colouring qualified and alternating grey/white
     echo "<head>
             <style>
             table {
-              width:100%;
+              width:windowSize%;
             }
             th, td {
               padding: 15px;
@@ -56,73 +57,135 @@
         
       }
 
-    $class = $_GET['class'];
-    
-    $compId = "14154";
-    echo "<a href=\"https://liveresultat.orientering.se/followfull.php?comp=", $compId, "&lang=en\">IOF Live Results</a></br>";
-    
-    echo "<p style=\"font-size:35px\">",
-         "<a href=\"http://cnocmaps.com/didIQualify.php?class=MEN A\">MEN A</a>", "\n\n\n\n\n", "<a href=\"http://cnocmaps.com/didIQualify.php?class=MEN B\">MEN B</a>", "\n\n\n\n\n",
-         "<a href=\"http://cnocmaps.com/didIQualify.php?class=MEN C\">MEN C</a>", "\n\n\n\n\n", "<a href=\"http://cnocmaps.com/didIQualify.php?class=MEN ALL\">MEN ALL</a>", "</br>",
-         "<a href=\"http://cnocmaps.com/didIQualify.php?class=WOMEN A\">WOMEN A</a>", "\n\n\n\n\n", "<a href=\"http://cnocmaps.com/didIQualify.php?class=WOMEN B\">WOMEN B</a>", "\n\n\n\n\n",
-         "<a href=\"http://cnocmaps.com/didIQualify.php?class=WOMEN C\">WOMEN C</a>", "\n\n\n\n\n", "<a href=\"http://cnocmaps.com/didIQualify.php?class=WOMEN ALL\">WOMEN ALL</a>",
-         "</p>";
-    
-    if ( $class == "MEN A"  or $class == "MEN B" or $class == "MEN C" or $class == "MEN ALL") {
-        $sex = "MEN";
-    } elseif ( $class == "WOMEN A" or $class == "WOMEN B" or $class == "WOMEN C" or $class == "WOMEN ALL") {
-        $sex = "WOMEN";
-    } else {
+    $server = $_SERVER['HTTP_HOST'];
+    $liveResultsUrl = "https://liveresultat.orientering.se/api.php";
+    $debug = $_GET['debug'];
+    if ( $debug == "true" ) {
+        echo "Debugging output turned on. </br></br>";
+    }
+
+    $eventId = $_GET['eventId'];
+    if ( $eventId == "" ) {
+        //Get a list of events and provide urls for live results
+        
+        //First get the competitions list
+        $getCompsUrl = $liveResultsUrl . "?method=getcompetitions";
+        
+        if ( $debug == "true" ) {
+            echo $getCompsUrl, "</br>";
+        }
+        
+        $comps = file_get_contents($getCompsUrl);
+        $comps = json_decode($comps, true);
+        
+        //var_dump( $comps['competitions'] );
+        $compArr = $comps['competitions'];
+    //    print_r($compArr);
+
+        foreach( $compArr as $comp ) {
+            if ( stripos( $comp['name'], "WOC" ) !== false && stripos( $comp['name'], "qual" ) ) {
+                echo $comp['date'], "\t <a href=\"", $server, "/didIQualify.php?eventId=", $comp['id'], "\">", $comp['name'], "</a></br>";
+            }
+            //$classComps['class'] = $sex . " A";
+            //array_push( $classResults, $classComps );
+        }
         exit();
+    }
+    
+    $eventId = $_GET['eventId'];
+    //First get the competitions info
+    $getCompInfo = $liveResultsUrl . "?method=getcompetitioninfo&comp=" . $eventId;
+    
+    if ( $debug == "true" ) {
+        echo "getCompInfo url: ", $getCompInfo, "</br>";
+    }
+    
+    $compInfo = file_get_contents($getCompInfo);
+    $compInfo = json_decode($compInfo, true);
+
+    echo $compInfo['date'], " ", $compInfo['name'], "</br>";
+
+    //FIXME remove this hard code
+//    $eventId = "14154";
+
+    echo "</br>Refresh manually to update results</br>";
+    echo "<a href=\"https://liveresultat.orientering.se/followfull.php?comp=", $eventId, "&lang=en\">IOF Live Results</a></br>";
+    
+    //TODO Check for 3 classes of men and women that match the expected qualification heats
+    // Actually don't really need to test that, can just assume first 3 classes are one grouping and the second 3 are another
+    $getClasses = $liveResultsUrl . "?method=getclasses&comp=" . $eventId;
+    
+    if ( $debug == "true" ) {
+        echo "getClasses url: ", $getClasses, "</br>";
+    }
+    
+    $compClasses = file_get_contents($getClasses);
+    $compClasses = json_decode($compClasses, true);
+
+    // Double check for 6 classes
+    if ( sizeof($compClasses['classes']) !== 6 ) {
+        echo "This webpage is designed for only qualification competitions with 6 classes, 3 men and 3 women. It may not work as expected for this competition</br></br>";
+    }
+
+    // Print the links for each class. First set up font size
+    echo "<p style=\"font-size:35px\">";
+    // Then loop over classes to create the urls
+    $iter = 0;
+    foreach( $compClasses['classes'] as $class ) {
+        //echo $class['className'], "</br>";
+        echo "<a href=\"", $server, "/didIQualify.php?eventId=", $eventId, "&class=", $class['className'], "\">", $class['className'], "</a>", "\n\n\n\n\n";
+        $iter = $iter + 1;
+        if ( $iter == 3 ) {
+            echo "<a href=\"", $server, "/didIQualify.php?eventId=", $eventId, "&class=MEN ALL\">MEN ALL</a>", "</br>";
+        } elseif ( $iter == 6 ) {
+            echo "<a href=\"", $server, "/didIQualify.php?eventId=", $eventId, "&class=WOMEN ALL\">WOMEN ALL</a>", "</br>";
+        }
+    }
+    echo "</p>";
+
+    $className = $_GET['class'];
+
+    if ( $className == "" ) {
+        exit();
+    }
+
+    $iter = 0;
+    $init = 0;
+    $end = 0;
+    foreach( $compClasses['classes'] as $class ) {
+        if ( $class['className'] == $className && $iter < 3 ) {
+            $init = 0;
+            $end = 3;
+            $classCase = 1;
+            break;
+        } elseif ( $class['className'] == $className && $iter < 6 ) {
+            $init = 3;
+            $end = 6;
+            $classCase = 2;
+            break;
+        } elseif ( $className == "MEN ALL" ) {
+            $init = 0;
+            $end = 3;
+            $classCase = 3;
+            break;
+        } elseif ( $className == "WOMEN ALL" ) {
+            $init = 3;
+            $end = 6;
+            $classCase = 4;
+            break;
+        }
+        $iter += 1;
+    }
+
+    if ( $debug == "true" ) {
+        echo "classCase: ", $classCase, "</br>";
     }
 
     $liveResultsUrl = "https://liveresultat.orientering.se/api.php";
     
     $classResults = array();
-    
-    $getClass = $sex . "%20A";
-    $getResultsURL = $liveResultsUrl . "?comp=" . $compId . "&method=getclassresults&unformattedtimes=true&class=" . $getClass;
-    //echo $getResultsURL, "</br>";
-    $classResultsA = file_get_contents($getResultsURL);
-    $classResultsA = json_decode( $classResultsA, true );
-    foreach( $classResultsA['results'] as $classComps ) {
-        $classComps['class'] = $sex . " A";
-        array_push( $classResults, $classComps );
-    }
-    
-    
-    $getClass = $sex . "%20B";
-    $getResultsURL = $liveResultsUrl . "?comp=" . $compId . "&method=getclassresults&unformattedtimes=true&class=" . $getClass;
-    //echo $getResultsURL, "</br>";
-    $classResultsB = file_get_contents($getResultsURL);
-    $classResultsB = json_decode( $classResultsB, true );
-    foreach( $classResultsB['results'] as $classComps ) {
-        $classComps['class'] = $sex . " B";
-        array_push( $classResults, $classComps );
-    }
 
-    
-    $getClass = $sex . "%20C";
-    $getResultsURL = $liveResultsUrl . "?comp=" . $compId . "&method=getclassresults&unformattedtimes=true&class=" . $getClass;
-    //echo $getResultsURL, "</br>";
-    $classResultsC = file_get_contents($getResultsURL);
-    $classResultsC = json_decode( $classResultsC, true );
-    foreach( $classResultsC['results'] as $classComps ) {
-        $classComps['class'] = $sex. " C";
-        array_push( $classResults, $classComps );
-    }
-    
-   // print_r($classResults);
-    
-    /*$classResultsArr = array(
-        "MEN A" => $classResultsA,
-        "MEN B" => $classResultsB,
-        "MEN C" => $classResultsC,
-    );*/
-        
-        
-    
-    //Class Results look like:
+    //Class Results downloaded look like:
     /*
     {
    "status":"OK",
@@ -138,15 +201,44 @@
          "result":"17:02",
          "status":0,
          "timeplus":"+00:00",
-         "progress":100,
+         "progress":windowSize,
          "start":6840000
       },
+
+    However, we only want the "results" part so strip that and add a class key to it
     */
+
+    for ( $i = $init; $i < $end; $i++ ) {
+        //$compClasses['classes'] as $class ) {
+        echo "i: ", $i, " </br>";
+        $getClass = $compClasses['classes'][$i]['className'];
+        $getClass_noSpace = str_replace( " ", "%20", $getClass );
+        if ( $debug == "true" ) {
+            echo "getClass: ", $getClass, "</br>";
+        }
+        $getResultsURL = $liveResultsUrl . "?comp=" . $eventId . "&method=getclassresults&unformattedtimes=true&class=" . $getClass_noSpace;
+        if ( $debug == "true" ) {
+            echo "getResultsURL: ", $getResultsURL, "</br>";
+        }
+        $classResultsLive = file_get_contents($getResultsURL);
+        $classResultsLive = json_decode( $classResultsLive, true );
+        foreach( $classResultsLive['results'] as $classComps ) {
+            $classComps['class'] = $getClass;
+//            print_r( $classComps );
+            array_push( $classResults, $classComps );
+        }
+    }
+
+// commented out printing
+/*
+    echo "new method</br>";
+    print_r( $classResults );
+    echo "</br></br></br>";
+*/
+
     
-    //$classes = ["MEN%20A", "MEN%20B", "MEN%20C"];
-    
-    //echo "</br></br></br>";
     usort($classResults, 'compare_place_and_time');
+    //echo "</br></br></br>Post sort</br>";
     //print_r($classResults);
     //echo "</br></br></br>";
     
@@ -156,21 +248,27 @@
     
 
     $printAll = false;
-    if ( $class == "MEN ALL" or $class == "WOMEN ALL") {
+    if ( $className == "MEN ALL" or $className == "WOMEN ALL") {
             $printAll = true;
             echo "List of finished  runners in all heats, green means provisionally qualified! Refresh your page to update results", "</br>";
-            echo "<table style=\"width:100%\"><tr> <th>Place</th><th>Class</th><th>Name</th><th>Country</th><th>Time</th><th>Time Behind</th></tr>";
+            echo "<table style=\"width:windowSize%\"><tr> <th>Place</th><th>Class</th><th>Name</th><th>Country</th><th>Time</th><th>Time Behind</th></tr>";
     }
     
+    // Check who should be qualified
     foreach ( $classResults as &$result ){
+        // Everyone in positions 1-15 are automatically in
         if ( $result['place'] != '-' ) {
             if( $result['place'] <= 15 ) {
                 //echo "<tr><td>", $result['place'], "</td><td>", $result['class'], "</td><td>", $result['name'], "</td><td>", $result['club'], "</td><td>", $result['result'], "</td><td>", $result['timeplus'], "</td></tr>";
+                // Add the result to the list and add the "club" (i.e. country) to a list
                 array_push( $finalComps, $result );
                 array_push( $finalClubs, $result['club']);
                 $result['qual'] = true;
             }
-            elseif ( sizeof($finalClubs) < 60){
+            // TODO check for time behind is not > 100%
+            // Max final size is 60 and we just fill up to that size
+            elseif ( sizeof($finalClubs) < 60 ){
+                // If no one from this club is already in then add this result
                 if( !in_array( $result['club'], $finalClubs ) ){
                    // echo "<tr><td>", $result['place'], "</td><td>", $result['class'], "</td><td>", $result['name'], "</td><td>", $result['club'], "</td><td>", $result['result'], "</td><td>", $result['timeplus'], "</td></tr>";
                     array_push( $finalComps, $result );
@@ -183,6 +281,7 @@
             }
             
         }
+        // In the ALL mode just print everyone in order
         if ( $printAll ) {
             if ( $result['qual'] == "1" ) {
                     echo "<tr style=\"background-color: #90EE90;\">";
@@ -196,14 +295,15 @@
     
     //echo "</br></br></br>";
     
+    // Otherwise loop over the competitors and print the ones from the chosen heat
     if ( !$printAll ) {
         echo "List of finished  runners in heat, green means provisionally qualified! Refresh your page to update results", "</br>";
-        echo "<table style=\"width:100%\"><tr> <th>Place</th><th>Class</th><th>Name</th><th>Country</th><th>Time</th><th>Time Behind</th></tr>";
+        echo "<table style=\"width:windowSize%\"><tr> <th>Place</th><th>Class</th><th>Name</th><th>Country</th><th>Time</th><th>Time Behind</th></tr>";
         
         foreach ( $classResults as $result ) {
             //print_r( $result );
             //echo "</br>";
-            if ( $result['class'] == $class ) {
+            if ( $result['class'] == $className ) {
                 if ( $result['qual'] == "1" ){
                     echo "<tr style=\"background-color: #90EE90;\">";
                 } else {
@@ -251,7 +351,7 @@
     //print_r($compArr);
     
     foreach( $compArr as $comp ) {
-        echo "<a href=\"http://cnocmaps.com/didIQualify.php/test.php\">", $comp['name'], "</a></br>";
+        echo "<a href=\"", $server, "/didIQualify.php/test.php\">", $comp['name'], "</a></br>";
     }
     */
     
