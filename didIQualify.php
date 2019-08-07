@@ -58,6 +58,7 @@
       }
 
     $server = $_SERVER['HTTP_HOST'];
+
     $liveResultsUrl = "https://liveresultat.orientering.se/api.php";
     $debug = $_GET['debug'];
     if ( $debug == "true" ) {
@@ -84,7 +85,7 @@
 
         foreach( $compArr as $comp ) {
             if ( stripos( $comp['name'], "WOC" ) !== false && stripos( $comp['name'], "qual" ) ) {
-                echo $comp['date'], "\t <a href=\"", $server, "/didIQualify.php?eventId=", $comp['id'], "\">", $comp['name'], "</a></br>";
+                echo $comp['date'], "\t <a href=\"http://", $server, "/didIQualify.php?eventId=", $comp['id'], "\">", $comp['name'], "</a></br>";
             }
             //$classComps['class'] = $sex . " A";
             //array_push( $classResults, $classComps );
@@ -133,12 +134,12 @@
     $iter = 0;
     foreach( $compClasses['classes'] as $class ) {
         //echo $class['className'], "</br>";
-        echo "<a href=\"", $server, "/didIQualify.php?eventId=", $eventId, "&class=", $class['className'], "\">", $class['className'], "</a>", "\n\n\n\n\n";
+        echo "<a href=\"http://", $server, "/didIQualify.php?eventId=", $eventId, "&class=", $class['className'], "\">", $class['className'], "</a>", "\n\n\n\n\n";
         $iter = $iter + 1;
         if ( $iter == 3 ) {
-            echo "<a href=\"", $server, "/didIQualify.php?eventId=", $eventId, "&class=MEN ALL\">MEN ALL</a>", "</br>";
+            echo "<a href=\"http://", $server, "/didIQualify.php?eventId=", $eventId, "&class=MEN ALL\">MEN ALL</a>", "</br>";
         } elseif ( $iter == 6 ) {
-            echo "<a href=\"", $server, "/didIQualify.php?eventId=", $eventId, "&class=WOMEN ALL\">WOMEN ALL</a>", "</br>";
+            echo "<a href=\"http://", $server, "/didIQualify.php?eventId=", $eventId, "&class=WOMEN ALL\">WOMEN ALL</a>", "</br>";
         }
     }
     echo "</p>";
@@ -351,7 +352,7 @@
     //print_r($compArr);
     
     foreach( $compArr as $comp ) {
-        echo "<a href=\"", $server, "/didIQualify.php/test.php\">", $comp['name'], "</a></br>";
+        echo "<a href=\"http://", $server, "/didIQualify.php/test.php\">", $comp['name'], "</a></br>";
     }
     */
     
