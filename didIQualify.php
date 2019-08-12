@@ -83,13 +83,16 @@
         $compArr = $comps['competitions'];
     //    print_r($compArr);
 
+        echo "<table><tr><th>Date</th><th>Competition</th><th>Organiser</th></tr>";
         foreach( $compArr as $comp ) {
-            if ( stripos( $comp['name'], "WOC" ) !== false && stripos( $comp['name'], "qual" ) ) {
-                echo $comp['date'], "\t <a href=\"http://", $server, "/didIQualify.php?eventId=", $comp['id'], "\">", $comp['name'], "</a></br>";
+            //if ( stripos( $comp['name'], "WOC" ) !== false && stripos( $comp['name'], "qual" ) ) {
+            if ( stripos( $comp['name'], "qual" ) ) {
+                echo "<tr><td>", $comp['date'], "</td><td> <a href=\"http://", $server, "/didIQualify.php?eventId=", $comp['id'], "\">", $comp['name'], "</a></td><td> ", $comp['organizer'], "</td></tr>";
             }
             //$classComps['class'] = $sex . " A";
             //array_push( $classResults, $classComps );
         }
+        echo "</table></br>";
         exit();
     }
     
@@ -210,8 +213,6 @@
     */
 
     for ( $i = $init; $i < $end; $i++ ) {
-        //$compClasses['classes'] as $class ) {
-        echo "i: ", $i, " </br>";
         $getClass = $compClasses['classes'][$i]['className'];
         $getClass_noSpace = str_replace( " ", "%20", $getClass );
         if ( $debug == "true" ) {
