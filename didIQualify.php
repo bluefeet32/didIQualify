@@ -259,7 +259,7 @@
     // Check who should be qualified
     foreach ( $classResults as &$result ){
         // Everyone in positions 1-15 are automatically in
-        if ( $result['place'] != '-' ) {
+        if ( $result['place'] != '-' and $result['place'] != ' ' ) {
             if( $result['place'] <= 15 ) {
                 //echo "<tr><td>", $result['place'], "</td><td>", $result['class'], "</td><td>", $result['name'], "</td><td>", $result['club'], "</td><td>", $result['result'], "</td><td>", $result['timeplus'], "</td></tr>";
                 // Add the result to the list and add the "club" (i.e. country) to a list
