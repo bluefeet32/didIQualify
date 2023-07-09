@@ -5,6 +5,7 @@
     Middle:
     - First 15 in each heat + ties
     - First person from each country that doesn't already have someone qualified to make up to 60
+    - Ties from different countries both qualify.
     - If two athletes from the same country have the same place in different heats, the one who is the least amount of time behind the winner of their heat is chosen
     
     For full rules see:
@@ -17,6 +18,7 @@
               border-collapse: collapse;
             }*/
     // Set up style for colouring qualified and alternating grey/white
+    
     echo "<head>
             <style>
             table {
@@ -38,25 +40,36 @@
             }
             </style>
         </head>";
-
+        
     //TODO: make a type your own name in version
     //      take event id as argument?
     //      
     
     // Sort by position and then time behind. This ensures ties in placings are sorted by time behind, thus the person with the lowest time behind is selected first
-    function compare_place_and_time($a, $b)
-      {
+    function compare_place_and_time($a, $b) {
         //Need to account for position "-" which is DNF or not yet finished in some way
         if ( $a['place'] == "-" ) { return true; }
         elseif ( $b['place'] == "-" ) { return false; }
+        elseif ( $b['place'] == "" ) { return false; }
         
         $retval = strnatcmp($a['place'], $b['place']);
         // if placing is identical, sort by first name
         if(!$retval) $retval = strnatcmp($a['timeplus'], $b['timeplus']);
         return $retval;
         
-      }
+    }
+    
+    
+    function add_result_to_qualified(&$result, &$finalComps, &$finalClubs) {
+        array_push( $finalComps, $result );
+        array_push( $finalClubs, $result['club']);
+        $result['qual'] = true;
+    }
 
+    function print_result($result) {
+        echo "<tr><td>", $result['place'], "</td><td>", $result['class'], "</td><td>", $result['name'], "</td><td>", $result['club'], "</td><td>", $result['result'], "</td><td>", $result['timeplus'], "</td></tr>";
+    }
+    
     $server = $_SERVER['HTTP_HOST'];
 
     $liveResultsUrl = "https://liveresultat.orientering.se/api.php";
@@ -86,7 +99,7 @@
         echo "<table><tr><th>Date</th><th>Competition</th><th>Organiser</th></tr>";
         foreach( $compArr as $comp ) {
             //if ( stripos( $comp['name'], "WOC" ) !== false && stripos( $comp['name'], "qual" ) ) {
-            if ( stripos( $comp['name'], "qual" ) ) {
+            if ( stripos( $comp['name'], "q" ) ) {
                 echo "<tr><td>", $comp['date'], "</td><td> <a href=\"http://", $server, "/didIQualify.php?eventId=", $comp['id'], "\">", $comp['name'], "</a></td><td> ", $comp['organizer'], "</td></tr>";
             }
             //$classComps['class'] = $sex . " A";
@@ -140,9 +153,9 @@
         echo "<a href=\"http://", $server, "/didIQualify.php?eventId=", $eventId, "&class=", $class['className'], "\">", $class['className'], "</a>", "\n\n\n\n\n";
         $iter = $iter + 1;
         if ( $iter == 3 ) {
-            echo "<a href=\"http://", $server, "/didIQualify.php?eventId=", $eventId, "&class=MEN ALL\">MEN ALL</a>", "</br>";
+            echo "<a href=\"http://", $server, "/didIQualify.php?eventId=", $eventId, "&class=MEN ALL\">Men All</a>", "</br>";
         } elseif ( $iter == 6 ) {
-            echo "<a href=\"http://", $server, "/didIQualify.php?eventId=", $eventId, "&class=WOMEN ALL\">WOMEN ALL</a>", "</br>";
+            echo "<a href=\"http://", $server, "/didIQualify.php?eventId=", $eventId, "&class=WOMEN ALL\">Women All</a>", "</br>";
         }
     }
     echo "</p>";
@@ -238,7 +251,6 @@
     echo "</br></br></br>";
 */
 
-    
     usort($classResults, 'compare_place_and_time');
     //echo "</br></br></br>Post sort</br>";
     //print_r($classResults);
@@ -248,6 +260,31 @@
     $finalComps = array();
     $finalClubs = array();
     
+    
+    // How does time work in php
+    /* Will add checking for +100%
+    
+    $resultSeconds = substr($classResults[0]['result'], -2);
+    $resultDecimal = substr($classResults[0]['result'], 0, 2) + ($resultSeconds / 60);
+    echo "res: ", $classResults[0]['result'], " ", $resultDecimal, " ", $resultSeconds, "<br/>";
+    
+    // Get the winning times of the heats
+    $place = 1;
+    $iter = 0;
+    $winners = [];
+    foreach ( $classResults as &$result ) {
+        if ($result['place'] != 1) {
+            break;
+        }
+        $resultSeconds = substr($result['result'], -2);
+        $resultDecimal = substr($result['result'], 0, 2) + ($resultSeconds / 60);
+        
+        $winners = [$result['class'] => $resultDecimal];
+        print_r($winners);
+    }
+
+    print_r($winners);
+    */
 
     $printAll = false;
     if ( $className == "MEN ALL" or $className == "WOMEN ALL") {
@@ -261,21 +298,18 @@
         // Everyone in positions 1-15 are automatically in
         if ( $result['place'] != '-' and $result['place'] != ' ' ) {
             if( $result['place'] <= 15 ) {
-                //echo "<tr><td>", $result['place'], "</td><td>", $result['class'], "</td><td>", $result['name'], "</td><td>", $result['club'], "</td><td>", $result['result'], "</td><td>", $result['timeplus'], "</td></tr>";
                 // Add the result to the list and add the "club" (i.e. country) to a list
-                array_push( $finalComps, $result );
-                array_push( $finalClubs, $result['club']);
-                $result['qual'] = true;
+                add_result_to_qualified($result, $finalComps, $finalClubs);
+                // print_result($result);
             }
             // TODO check for time behind is not > 100%
-            // Max final size is 60 and we just fill up to that size
-            elseif ( sizeof($finalClubs) < 60 ){
+            // Max final size is 60 and we just fill up to that size.
+            // Also let in ties from different countries. Same country ties are handled by the ordering being by time behind.
+            elseif ( sizeof($finalClubs) < 60 or $result['place'] == end($finalComps)['place']){
                 // If no one from this club is already in then add this result
                 if( !in_array( $result['club'], $finalClubs ) ){
-                   // echo "<tr><td>", $result['place'], "</td><td>", $result['class'], "</td><td>", $result['name'], "</td><td>", $result['club'], "</td><td>", $result['result'], "</td><td>", $result['timeplus'], "</td></tr>";
-                    array_push( $finalComps, $result );
-                    array_push( $finalClubs, $result['club']);
-                    $result['qual'] = true;
+                    add_result_to_qualified($result, $finalComps, $finalClubs);
+                    //print_result($result)
                 }
             }
             else {
@@ -317,6 +351,7 @@
     }
         
     echo "</table>";
+    
     
    /* foreach ( $classResultsArr as $class ){
         $classResults = $class['results'];
@@ -407,5 +442,6 @@
     //echo 'Online: '. $response['players']['online'];
 
     echo
+    */
 
 ?>
